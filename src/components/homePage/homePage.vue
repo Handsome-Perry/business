@@ -12,7 +12,7 @@
 </template>
 <script>
 import adminInfo from "./adminInfo";
-import addGoods from "./addGoods"
+import addGoods from "./drinkInfo/addGoods.vue"
 export default {
   data() {
     return {

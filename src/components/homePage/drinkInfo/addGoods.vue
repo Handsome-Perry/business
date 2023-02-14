@@ -1,11 +1,20 @@
 <template>
   <div>
     <el-form ref="form" :model="form" label-width="80px">
+      <el-form-item label="饮品图片">
+        <getProfile
+          :uploadType="`head`"
+          :imgWidth="`104px`"
+          :imgHeight="`104px`"
+          :imgUrl="imgUrl"
+          @upload="getImgUrl"
+        ></getProfile>
+      </el-form-item>
       <el-form-item label="饮品名称">
         <el-input v-model="form.name"></el-input>
       </el-form-item>
-      <el-form-item label="饮品价格">
-        <el-input v-model="form.price"></el-input>
+      <el-form-item label="饮品类型">
+        <el-input v-model="form.type"></el-input>
       </el-form-item>
       <el-form-item label="饮品介绍">
         <el-input type="textarea" v-model="form.desc"></el-input>
@@ -38,6 +47,34 @@
           @click="showInput('size')"
           >+ New Tag</el-button
         >
+      </el-form-item>
+      <el-form-item label="定价">
+        <el-tag
+          :key="tag"
+          v-for="tag in form.price.dynamicTags"
+          closable
+          :disable-transitions="false"
+          @close="handleClose('price', tag)"
+        >
+          {{ tag }}
+        </el-tag>
+        <el-input
+          class="input-new-tag"
+          v-if="form.price.inputVisible"
+          v-model="form.price.inputValue"
+          ref="priceSaveTagInput"
+          price="small"
+          @keyup.enter="handleInputConfirm('price')"
+          @blur="handleInputConfirm('price')"
+        >
+        </el-input>
+        <el-button
+          v-else
+          class="button-new-tag"
+          size="small"
+          @click="showInput('price')"
+          >+ New Tag</el-button
+        >(请根据规格顺序填写)
       </el-form-item>
       <el-form-item label="甜度">
         <el-tag
@@ -125,25 +162,36 @@
       </el-form-item>
       <el-form-item>
         <el-button type="primary" @click="onSubmit">立即创建</el-button>
-        <el-button>取消</el-button>
       </el-form-item>
     </el-form>
-    {{this.form}}
+    {{ this.form }}
+    <button @click="profile">123456789</button>
   </div>
 </template>
 
 <script>
+import cloud from "@/network/init";
+import getProfile from "@/components/homePage/drinkInfo/getProfile.vue";
 export default {
   name: "addGoods",
-
+  components: {
+    getProfile,
+  },
   data() {
     return {
       form: {
+        saleNumber: 0,
+        img: "",
         name: "",
-        peice: "",
+        type: "",
         desc: "",
         size: {
           dynamicTags: ["大杯", "中杯", "小杯"],
+          inputVisible: false,
+          inputValue: "",
+        },
+        price: {
+          dynamicTags: ["20", "18", "15"],
           inputVisible: false,
           inputValue: "",
         },
@@ -172,6 +220,11 @@ export default {
           this.form.size.dynamicTags.indexOf(tag),
           1
         );
+      } else if (obj == "price") {
+        this.form.price.dynamicTags.splice(
+          this.form.price.dynamicTags.indexOf(tag),
+          1
+        );
       } else if (obj == "sweet") {
         this.form.sweet.dynamicTags.splice(
           this.form.sweet.dynamicTags.indexOf(tag),
@@ -196,6 +249,11 @@ export default {
         this.form.size.inputVisible = true;
         this.$nextTick(() => {
           this.$refs.sizeSaveTagInput.$refs.input.focus();
+        });
+      } else if (obj == "price") {
+        this.form.price.inputVisible = true;
+        this.$nextTick(() => {
+          this.$refs.priceSaveTagInput.$refs.input.focus();
         });
       } else if (obj == "sweet") {
         this.form.sweet.inputVisible = true;
@@ -225,6 +283,13 @@ export default {
         }
         this.form.size.inputVisible = false;
         this.form.size.inputValue = "";
+      } else if (obj == "price") {
+        let inputValue = this.form.price.inputValue;
+        if (inputValue) {
+          this.form.price.dynamicTags.push(inputValue);
+        }
+        this.form.price.inputVisible = false;
+        this.form.price.inputValue = "";
       } else if (obj == "sweet") {
         let inputValue = this.form.sweet.inputValue;
         if (inputValue) {
@@ -232,7 +297,7 @@ export default {
         }
         this.form.sweet.inputVisible = false;
         this.form.sweet.inputValue = "";
-      }else if (obj == "temperature") {
+      } else if (obj == "temperature") {
         let inputValue = this.form.temperature.inputValue;
         if (inputValue) {
           this.form.temperature.dynamicTags.push(inputValue);
@@ -247,6 +312,89 @@ export default {
         this.form.Packing.inputVisible = false;
         this.form.Packing.inputValue = "";
       }
+    },
+
+    profile() {
+      cloud.chooseImage({
+        success(res) {
+          const tempFilePaths = res.tempFilePaths;
+          this.tempPath = tempFilePaths[0];
+          cloud
+            .uploadFile({
+              cloudPath: "example.png",
+              filePath: tempFilePaths[0], // 文件路径
+            })
+            .then((res) => {
+              // get resource ID
+              console.log(res.fileID);
+            })
+            .catch((error) => {
+              // handle error
+              console.log(error, "err");
+            });
+        },
+      });
+    },
+
+    //接收子组件emit的事件
+    getImgUrl(data) {
+      this.form.img = data;
+    },
+    errorInfo(info) {
+      this.$message.error(info);
+    },
+    onSubmit() {
+      // 等整个提交的时候再上传图片
+      if (this.form.img == "") {
+        this.errorInfo("图片未上传");
+        return;
+      }
+      if (this.form.name.trim() == "") {
+        this.errorInfo("饮品名称未填写");
+        return;
+      }
+      if (this.form.type.trim() == "") {
+        this.errorInfo("饮品类型未填写");
+        return;
+      }
+      if (this.form.desc.trim() == "") {
+        this.errorInfo("饮品介绍未填写");
+        return;
+      }
+      if (this.form.size.dynamicTags.length == 0) {
+        this.errorInfo("饮品规格未填写");
+        return;
+      }
+      if (this.form.price.dynamicTags.length != this.form.size.dynamicTags.length) {
+        this.errorInfo("饮品价格与规格不对应");
+        return;
+      }
+      if (this.form.sweet.dynamicTags.length == 0) {
+        this.errorInfo("饮品sweet未注明");
+        return;
+      }
+      if (this.form.temperature.dynamicTags.length == 0) {
+        this.errorInfo("饮品温度未注明");
+        return;
+      }
+      if (this.form.Packing.dynamicTags.length == 0) {
+        this.errorInfo("包装类型未注明");
+        return;
+      }
+      cloud
+        .callFunction({
+          name: "addTea",
+          data: {
+            form: this.form,
+          },
+        })
+        .then((res) => {
+          this.list = res.result;
+          this.$message({
+            message: "成功添加",
+            type: "success",
+          });
+        });
     },
   },
 };

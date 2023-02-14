@@ -55,7 +55,6 @@ export default {
     };
   },
   created() {
-    console.log("create");
     cloud.callFunction({
         name: "allBusiness",
       })
